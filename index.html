@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Birmingham</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f5f5;
+        }
+
+        /* ===== HEADER ===== */
+        #header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            position: relative;
+        }
+
+        #header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        #header h1 span {
+            font-weight: 400;
+            opacity: 0.8;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-white {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            backdrop-filter: blur(4px);
+        }
+
+        .btn-white:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+
+        /* ===== MAP ===== */
+        #map {
+            width: 100%;
+            height: calc(100vh - 52px);
+        }
+
+        /* ===== SIDEBAR LEGEND ===== */
+        #legend {
+            position: absolute;
+            bottom: 50px;
+            left: 10px;
+            background: white;
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+            z-index: 800;
+            font-size: 0.78rem;
+            min-width: 150px;
+        }
+
+        #legend h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ===== COORDINATE BAR ===== */
+        #coords {
+            position: absolute;
+            bottom: 8px;
+            right: 10px;
+            background: white;
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 0.72rem;
+            font-family: 'Courier New', monospace;
+            color: #555;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 800;
+        }
+
+        /* ===== CUSTOM POPUP ===== */
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .popup-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #6366f1;
+            margin-bottom: 6px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 5px;
+        }
+
+        .popup-table td {
+            padding: 3px 8px 3px 0;
+            font-size: 0.78rem;
+            vertical-align: top;
+        }
+
+        .popup-table td:first-child {
+            color: #888;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        /* ===== LOADING ===== */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        #loading.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            #header h1 {
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 6px 10px;
+                font-size: 0.72rem;
+            }
+
+            #legend {
+                bottom: 40px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <div id="header">
+        <h1>🗺️ WebGIS <span>Birmingham</span></h1>
+        <div class="header-buttons">
+            <button class="btn btn-white" onclick="resetView()">🏠 Reset</button>
+            <button class="btn btn-white" onclick="locateMe()">📍 Locate Me</button>
+            <button class="btn btn-white" id="audioBtn" onclick="toggleAudio()">🔇 Music</button>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Legend -->
+    <div id="legend">
+        <h4>📋 Legend</h4>
+        <!-- Filled dynamically by JS -->
+    </div>
+
+    <!-- Coordinate Display -->
+    <div id="coords">Lat: — | Lng: —</div>
+
+    <!-- Background Music (simple HTML audio) -->
+    <audio id="bgMusic" loop>
+        <source src="https://cdn.pixabay.com/audio/2022/10/25/audio_565a93bc1a.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        /* ===========================================
+           WebGIS Birmingham — Simple & Clean
+           =========================================== */
+
+        // --- Category colors & labels ---
+        const CATEGORIES = {
+            atm: { color: '#6366f1', label: 'ATM' },
+            bank: { color: '#3b82f6', label: 'Bank' },
+            parking: { color: '#8b5cf6', label: 'Parking' },
+            dentist: { color: '#10b981', label: 'Dentist' },
+            hospital: { color: '#14b8a6', label: 'Hospital' },
+            school: { color: '#f59e0b', label: 'School' },
+            university: { color: '#ec4899', label: 'University' },
+            bus_station: { color: '#ef4444', label: 'Bus Station' },
+            townhall: { color: '#f97316', label: 'Town Hall' },
+            other: { color: '#94a3b8', label: 'Other' }
+        };
+
+        // --- Initialize Map ---
+        var map = L.map('map', {
+            center: [52.48, -1.90],
+            zoom: 13,
+            zoomControl: true
+        });
+
+        // Basemap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Scale
+        L.control.scale({ position: 'bottomleft' }).addTo(map);
+
+        // --- Mouse Coordinates ---
+        map.on('mousemove', function (e) {
+            document.getElementById('coords').textContent =
+                'Lat: ' + e.latlng.lat.toFixed(5) + ' | Lng: ' + e.latlng.lng.toFixed(5);
+        });
+
+        // --- Helper: get category ---
+        function getCategory(props) {
+            if (props.amenity && CATEGORIES[props.amenity]) return props.amenity;
+            if (props.amenity) return props.amenity;
+            return 'other';
+        }
+
+        function getCatInfo(cat) {
+            return CATEGORIES[cat] || CATEGORIES.other;
+        }
+
+        // --- Helper: create circle marker ---
+        function createMarker(latlng, cat) {
+            var info = getCatInfo(cat);
+            return L.circleMarker(latlng, {
+                radius: 7,
+                fillColor: info.color,
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.85
+            });
+        }
+
+        // --- Helper: build popup ---
+        function buildPopup(props) {
+            var name = props.name || props.operator || props.amenity || 'Unnamed';
+            var html = '<div class="popup-title">' + name + '</div>';
+            html += '<table class="popup-table">';
+
+            // Show important fields
+            var skip = ['osm_id', 'osm_type'];
+            for (var key in props) {
+                if (props[key] && props[key] !== '' && skip.indexOf(key) === -1) {
+                    var label = key.replace(/_/g, ' ');
+                    html += '<tr><td>' + label + '</td><td>' + props[key] + '</td></tr>';
+                }
+            }
+            html += '</table>';
+            return html;
+        }
+
+        // --- Load GeoJSON ---
+        var categoryCounts = {};
+
+        fetch('Birmingham.geojson')
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                // Process each feature
+                L.geoJSON(data, {
+                    // Handle points as circle markers
+                    pointToLayer: function (feature, latlng) {
+                        var cat = getCategory(feature.properties);
+                        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+                        return createMarker(latlng, cat);
+                    },
+
+                    // Style for lines & polygons
+                    style: function (feature) {
+                        var type = feature.geometry.type;
+                        if (type === 'LineString') {
+                            return { color: '#8b5cf6', weight: 2, opacity: 0.5 };
+                        }
+                        if (type === 'Polygon' || type === 'MultiPolygon') {
+                            return {
+                                fillColor: '#6366f1', fillOpacity: 0.3,
+                                color: '#6366f1', weight: 1
+                            };
+                        }
+                    },
+
+                    // Add popup & hover effects
+                    onEachFeature: function (feature, layer) {
+                        // Popup
+                        layer.bindPopup(buildPopup(feature.properties));
+
+                        // Hover effect for markers
+                        layer.on('mouseover', function () {
+                            if (layer.setStyle) {
+                                layer.setStyle({
+                                    radius: 10,
+                                    fillOpacity: 1,
+                                    weight: 3
+                                });
+                            }
+                        });
+                        layer.on('mouseout', function () {
+                            if (layer.setStyle) {
+                                layer.setStyle({
+                                    radius: 7,
+                                    fillOpacity: 0.85,
+                                    weight: 2
+                                });
+                            }
+                        });
+                    }
+                }).addTo(map);
+
+                // Build legend
+                buildLegend();
+
+                // Hide loading
+                setTimeout(function () {
+                    document.getElementById('loading').classList.add('hide');
+                }, 500);
+            })
+            .catch(function (err) {
+                console.error('Error loading GeoJSON:', err);
+                document.getElementById('loading').innerHTML =
+                    '<p style="color:red;font-weight:600">Error loading data!</p>';
+            });
+
+        // --- Build Legend ---
+        function buildLegend() {
+            var legend = document.getElementById('legend');
+            var html = '<h4>📋 Legend</h4>';
+
+            // Sort by count
+            var sorted = Object.keys(categoryCounts).sort(function (a, b) {
+                return categoryCounts[b] - categoryCounts[a];
+            });
+
+            sorted.forEach(function (cat) {
+                var info = getCatInfo(cat);
+                html += '<div class="legend-item">' +
+                    '<span class="legend-dot" style="background:' + info.color + '"></span>' +
+                    '<span>' + info.label + ' (' + categoryCounts[cat] + ')</span>' +
+                    '</div>';
+            });
+
+            legend.innerHTML = html;
+        }
+
+        // --- Reset View ---
+        function resetView() {
+            map.flyTo([52.48, -1.90], 13, { duration: 1 });
+        }
+
+        // --- Locate Me ---
+        function locateMe() {
+            map.locate({ setView: true, maxZoom: 16 });
+            map.once('locationfound', function (e) {
+                L.circleMarker(e.latlng, {
+                    radius: 10,
+                    fillColor: '#6366f1',
+                    color: '#fff',
+                    weight: 3,
+                    fillOpacity: 1
+                }).addTo(map)
+                    .bindPopup('📍 You are here!<br>Accuracy: ±' + Math.round(e.accuracy) + 'm')
+                    .openPopup();
+            });
+            map.once('locationerror', function () {
+                alert('Location not available. Please enable GPS.');
+            });
+        }
+
+        // --- Audio Play/Pause ---
+        var audioPlaying = false;
+        function toggleAudio() {
+            var audio = document.getElementById('bgMusic');
+            var btn = document.getElementById('audioBtn');
+            if (audioPlaying) {
+                audio.pause();
+                btn.textContent = '🔇 Music';
+            } else {
+                audio.volume = 0.3;
+                audio.play();
+                btn.textContent = '🔊 Music';
+            }
+            audioPlaying = !audioPlaying;
+        }
+    </script>
+</body>
+
+</html>
